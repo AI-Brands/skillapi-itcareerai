@@ -20,9 +20,6 @@ interface MessageVariables {
   [key: string]: any;
 }
 
-// Add a simple in-memory memory store for each session
-const sessionMemory: Record<string, string[]> = {};
-
 /**
  * Conversation handler
  *
@@ -42,11 +39,6 @@ export async function conversationHandler(
   // Use regex for more robust trigger detection
   const userMessage = msg.text.trim();
   const isStartInterview = /\b(start|begin) interview\b/i.test(userMessage);
-
-  // --- MEMORY: Store message in session memory ---
-  const sessionId = connection.sessionId || msg.sessionId || 'default';
-  if (!sessionMemory[sessionId]) sessionMemory[sessionId] = [];
-  sessionMemory[sessionId].push(`User: ${userMessage}`);
 
   // If this is a start interview trigger and we have context
   if (isStartInterview && connection.context) {
@@ -76,54 +68,40 @@ export async function conversationHandler(
 
     const fullGreeting = greeting + stageMessage + difficultyMessage + locationMessage;
 
-    // Store in memory
-    sessionMemory[sessionId].push(`Avatar: ${fullGreeting}`);
-
     console.log('Sending greeting:', fullGreeting);
     // Send greeting first
-    await connection.send('conversation', { text: fullGreeting, meta: { endConversation: false }, memory: sessionMemory[sessionId] });
+    await connection.send('skillConversation', { text: fullGreeting, meta: { endConversation: false } });
 
     // Then send initial question if available
     if (connection.context.initialQuestion) {
       console.log('Sending initial question:', connection.context.initialQuestion);
       // Add a small delay to ensure the greeting is processed first
       await new Promise(resolve => setTimeout(resolve, 1000));
-      sessionMemory[sessionId].push(`Avatar: ${connection.context.initialQuestion}`);
-      await connection.send('conversation', { text: connection.context.initialQuestion, meta: { endConversation: false }, memory: sessionMemory[sessionId] });
+      await connection.send('skillConversation', { text: connection.context.initialQuestion, meta: { endConversation: false } });
     } else {
       console.error('No initial question found in context');
-      sessionMemory[sessionId].push("Avatar: Let's begin! Please introduce yourself.");
-      await connection.send('conversation', { text: "Let's begin! Please introduce yourself.", meta: { endConversation: false }, memory: sessionMemory[sessionId] });
+      await connection.send('skillConversation', { text: "Let's begin! Please introduce yourself.", meta: { endConversation: false } });
     }
   } else if (isStartInterview && !connection.context) {
     // If start interview triggered but no context
     console.log('Start interview triggered but no context found');
-    sessionMemory[sessionId].push("Avatar: I don't have your interview context yet. Please make sure the context was properly sent before starting the session.");
-    await connection.send('conversation', {
+    await connection.send('skillConversation', {
       text: "I don't have your interview context yet. Please make sure the context was properly sent before starting the session.",
-      meta: { endConversation: false },
-      memory: sessionMemory[sessionId]
+      meta: { endConversation: false }
     });
   } else if (connection.interviewStage === 'interview') {
     // Handle interview questions
     console.log('Processing interview response');
-    // Use memory to provide context-aware response
-    const lastUser = sessionMemory[sessionId].filter(m => m.startsWith('User:')).slice(-1)[0] || '';
-    const response = `Thank you for your answer. (${lastUser.replace('User: ', '')}) I'll ask the next question soon.`;
-    sessionMemory[sessionId].push(`Avatar: ${response}`);
-    await connection.send('conversation', {
-      text: response,
-      meta: { endConversation: false },
-      memory: sessionMemory[sessionId]
+    await connection.send('skillConversation', {
+      text: "I understand your response. Let me think about that...",
+      meta: { endConversation: false }
     });
-  } else {
+    } else {
     // Default response for other messages
     console.log('Sending default response');
-    sessionMemory[sessionId].push("Avatar: Please say 'start interview' to begin your mock interview session.");
-    await connection.send('conversation', {
+    await connection.send('skillConversation', {
       text: "Please say 'start interview' to begin your mock interview session.",
-      meta: { endConversation: false },
-      memory: sessionMemory[sessionId]
+      meta: { endConversation: false }
     });
   }
 }
