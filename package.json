@@ -19,7 +19,8 @@
     "singleQuote": true
   },
   "dependencies": {
-    "@netlify/functions": "^2.6.0",
+    "@netlify/functions": "^3.1.9",
+    "@netlify/node-cookies": "^0.1.0",
     "@soulmachines/smskillsdk": "^1.4.0-rc.0",
     "cors": "^2.8.5",
     "tslib": "^2.6.2"

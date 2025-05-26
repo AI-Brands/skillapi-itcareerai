@@ -1,10 +1,12 @@
-import { Handler } from '@netlify/functions';
-import express from 'express';
+import { Handler, HandlerContext, HandlerResponse } from '@netlify/functions';
+import express, { Request, Response } from 'express';
 import expressWs from 'express-ws';
 import bodyParser from 'body-parser';
 import cors from 'cors';
-import restRoutes from '../../dist/app/rest_routes';
-import wsRoutes from '../../dist/app/ws_routes';
+
+// Import routes after they are built
+const restRoutes = require('../../dist/app/rest_routes').default;
+const wsRoutes = require('../../dist/app/ws_routes').default;
 
 const app = express();
 expressWs(app);
@@ -23,20 +25,51 @@ app.use(restRoutes);
 app.use(wsRoutes);
 
 // Create a serverless handler
-const handler: Handler = async (event, context) => {
+const handler: Handler = async (event, context: HandlerContext): Promise<HandlerResponse> => {
   return new Promise((resolve, reject) => {
     const server = app.listen(0, () => {
       const { port } = server.address() as { port: number };
       
-      // Forward the request to the Express app
-      const request = {
+      // Create a mock request object that matches Express's Request interface
+      const mockRequest = {
         method: event.httpMethod,
-        path: event.path,
+        url: event.path,
         headers: event.headers,
         body: event.body,
-      };
+        // Add required Express Request methods
+        get: (header: string) => event.headers[header.toLowerCase()],
+        header: (header: string) => event.headers[header.toLowerCase()],
+        accepts: () => true,
+        acceptsCharsets: () => true,
+        acceptsEncodings: () => true,
+        acceptsLanguages: () => true,
+        param: () => '',
+        is: () => false,
+        protocol: 'https',
+        secure: true,
+        ip: '',
+        ips: [],
+        subdomains: [],
+        path: event.path,
+        hostname: '',
+        host: '',
+        fresh: false,
+        stale: true,
+        xhr: false,
+        cookies: {},
+        signedCookies: {},
+        secret: undefined,
+        query: {},
+        route: {},
+        originalUrl: event.path,
+        baseUrl: '',
+        params: {},
+        app: app,
+        res: {} as Response,
+        next: () => {},
+      } as unknown as Request;
 
-      app(request, {
+      const mockResponse = {
         statusCode: 200,
         headers: {},
         body: '',
@@ -51,7 +84,9 @@ const handler: Handler = async (event, context) => {
             },
           });
         },
-      });
+      } as unknown as Response;
+
+      app(mockRequest, mockResponse);
     });
   });
 };
