@@ -1,15 +1,12 @@
 import { Handler, HandlerContext, HandlerResponse } from '@netlify/functions';
 import express, { Request, Response } from 'express';
-import expressWs from 'express-ws';
 import bodyParser from 'body-parser';
 import cors from 'cors';
 
 // Import routes after they are built
 const restRoutes = require('../../dist/app/rest_routes').default;
-const wsRoutes = require('../../dist/app/ws_routes').default;
 
 const app = express();
-expressWs(app);
 
 // Enable CORS for all routes
 app.use(cors({
@@ -22,7 +19,6 @@ app.use(cors({
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 app.use(restRoutes);
-app.use(wsRoutes);
 
 // Create a serverless handler
 const handler: Handler = async (event, context: HandlerContext): Promise<HandlerResponse> => {

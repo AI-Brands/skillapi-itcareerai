@@ -5,14 +5,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handler = void 0;
 const express_1 = __importDefault(require("express"));
-const express_ws_1 = __importDefault(require("express-ws"));
 const body_parser_1 = __importDefault(require("body-parser"));
 const cors_1 = __importDefault(require("cors"));
 // Import routes after they are built
 const restRoutes = require('../../dist/app/rest_routes').default;
-const wsRoutes = require('../../dist/app/ws_routes').default;
 const app = (0, express_1.default)();
-(0, express_ws_1.default)(app);
 // Enable CORS for all routes
 app.use((0, cors_1.default)({
     origin: '*', // Allow all origins in production
@@ -23,7 +20,6 @@ app.use((0, cors_1.default)({
 app.use(body_parser_1.default.urlencoded({ extended: false }));
 app.use(body_parser_1.default.json());
 app.use(restRoutes);
-app.use(wsRoutes);
 // Create a serverless handler
 const handler = async (event, context) => {
     return new Promise((resolve, reject) => {
