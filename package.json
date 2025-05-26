@@ -4,8 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "clean": "shx rm -rf dist",
-    "build": "npm run clean && tsc && npm run build:netlify",
-    "build:netlify": "tsc -p tsconfig.netlify.json",
+    "build": "npm run clean && tsc",
     "serve": "ts-node -r tsconfig-paths/register src/app/app.ts",
     "serve:watch": "nodemon --watch \"src/**\" --exec \"npm run serve\" --ext ts --ignore dist .",
     "lint": "eslint src/ --ext .js,.ts",
@@ -20,9 +19,9 @@
     "singleQuote": true
   },
   "dependencies": {
-    "@netlify/functions": "^2.6.0",
     "@soulmachines/smskillsdk": "^1.4.0-rc.0",
     "cors": "^2.8.5",
+    "express": "^4.19.2",
     "tslib": "^2.6.2"
   },
   "devDependencies": {
@@ -33,7 +32,6 @@
     "@typescript-eslint/eslint-plugin": "^7.4.0",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
-    "express": "^4.19.2",
     "nodemon": "^3.1.0",
     "prettier": "^3.2.5",
     "shx": "^0.3.4",

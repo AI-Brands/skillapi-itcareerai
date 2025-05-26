@@ -9,14 +9,13 @@ import { storeContext, getContext, clearContext } from './session_store';
 
 const router = express.Router();
 
-// Add CORS middleware to allow requests from localhost:5173
-router.use(cors({ origin: 'http://localhost:5173', credentials: true }));
-
-// Add type for global.activeWsConnections
-if (!(global as any).activeWsConnections) {
-  (global as any).activeWsConnections = new Map<string, any>();
-}
-const activeWsConnections: Map<string, any> = (global as any).activeWsConnections;
+// Add CORS middleware to allow requests from any origin in production
+router.use(cors({ 
+  origin: '*', 
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id']
+}));
 
 // Initialize the skill
 router.post(
@@ -55,29 +54,12 @@ router.post('/api/session/context', async (req: Request, res: Response) => {
   // Store the context
   storeContext(sessionId, context);
 
-  // Debug: log current activeWsConnections keys
-  console.log('Looking up wsConnection for session:', sessionId);
-  console.log('Current activeWsConnections keys:', Array.from(activeWsConnections.keys()));
-
-  // If we have an active WebSocket connection, attach the context to it
-    const wsConnection = activeWsConnections.get(sessionId);
-    if (wsConnection) {
-    console.log('Found active WebSocket connection, attaching context');
-    wsConnection.context = context;
-    wsConnection.interviewStage = 'greeting';
-    wsConnection.sessionId = sessionId;
-
-    // Send welcome message
-    const welcomeResponse = {
-      text: "Welcome to your mock interview session! When you're ready, please say 'start interview' to begin.",
-    };
-    console.log('Sending welcome message:', welcomeResponse);
-    await wsConnection.send('skillConversation', welcomeResponse);
-    } else {
-    console.log('No active WebSocket connection found, context will be used when connection is established');
-  }
-
-  res.json({ success: true });
+  // Send welcome message
+  const welcomeResponse = {
+    text: "Welcome to your mock interview session! When you're ready, please say 'start interview' to begin.",
+  };
+  console.log('Sending welcome message:', welcomeResponse);
+  res.json(welcomeResponse);
 });
 
 // Get session context
@@ -111,20 +93,13 @@ router.post('/api/execute', async (req: Request, res: Response) => {
       context: sessionContexts.get(sessionId)
     });
 
-    // Get the WebSocket connection if it exists
-    const wsConnection = activeWsConnections.get(sessionId);
-
     // Create a connection object with context
     const connection = {
       context: sessionContexts.get(sessionId),
-      interviewStage: wsConnection?.interviewStage || 'greeting',
+      interviewStage: 'greeting',
       sessionId,
       send: async (type: string, data: any) => {
         console.log('Sending response:', { type, data });
-        if (wsConnection) {
-          // If we have a WebSocket connection, use it
-          await wsConnection.send(type, data);
-        }
         res.json(data);
       }
     };
