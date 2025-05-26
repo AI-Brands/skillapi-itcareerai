@@ -1,10 +1,13 @@
 import yargs from 'yargs';
 import express from 'express';
+import expressWs from 'express-ws';
 import bodyParser from 'body-parser';
 import cors from 'cors';
 import restRoutes from 'app/rest_routes';
+import wsRoutes from 'app/ws_routes';
 
 const app = express();
+expressWs(app);
 
 // Enable CORS for all routes
 app.use(cors({
@@ -17,6 +20,7 @@ app.use(cors({
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 app.use(restRoutes);
+app.use(wsRoutes);
 
 const args = yargs(process.argv.slice(2))
   .option({
