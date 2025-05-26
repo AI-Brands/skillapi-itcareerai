@@ -3,8 +3,10 @@ import expressWs, { Application } from 'express-ws';
 import { wsConnection } from 'utils/ws_connection';
 import { conversationHandler } from 'api/handlers/conversation';
 import { sessionStartHandler, sessionEndHandler } from 'api/handlers/session';
-import WebSocket from 'ws';
+import { WebSocket, WebSocketServer } from 'ws';
 import cors from 'cors';
+import { IncomingMessage } from 'http';
+import { URL } from 'url';
 
 // Create express app with WebSocket support
 const app = express();
@@ -19,17 +21,15 @@ wsInstance.use(cors({
   credentials: true
 }));
 
-// Add type for global.activeWsConnections
-if (!(global as any).activeWsConnections) {
-  (global as any).activeWsConnections = new Map<string, WebSocket>();
+// Define the SessionContext type since it's not exported from smskillsdk
+interface SessionContext {
+  [key: string]: any;
 }
+
+// Store active WebSocket connections
 const activeWsConnections = new Map<string, WebSocket>();
-
-// Store pending context for sessions that haven't connected yet
-const pendingContext = new Map<string, any>();
-
-// Store session context for REST API fallback
-const sessionContext = new Map<string, any>();
+const sessionContext = new Map<string, SessionContext>();
+const pendingContext = new Map<string, SessionContext>();
 
 // Create a wrapper for WebSocket to match ConnectionWithContext interface
 class WebSocketWrapper {
@@ -55,6 +55,99 @@ class WebSocketWrapper {
       }
     });
   }
+}
+
+export function setupWebSocketServer(wss: WebSocketServer) {
+  wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
+    const url = new URL(req.url || '', `http://${req.headers.host}`);
+    const sessionId = url.searchParams.get('sessionId');
+
+    if (!sessionId) {
+      ws.close(1008, 'Missing sessionId parameter');
+      return;
+    }
+
+    // Handle incoming messages
+    ws.on('message', async (data: string) => {
+      try {
+        const msg = JSON.parse(data);
+
+        switch (msg.type) {
+          case 'context':
+            if (msg.payload?.context) {
+              // Store the WebSocket connection
+              activeWsConnections.set(sessionId, ws);
+
+              // Store the context
+              sessionContext.set(sessionId, msg.payload.context);
+
+              // Check if there's a pending context
+              const pendingCtx = pendingContext.get(sessionId);
+              if (pendingCtx) {
+                // Send the pending context
+                ws.send(JSON.stringify({
+                  type: 'context',
+                  payload: { context: pendingCtx }
+                }));
+                // Clear the pending context
+                pendingContext.delete(sessionId);
+              }
+            }
+            break;
+
+          case 'reconnect':
+            // Store the WebSocket connection
+            activeWsConnections.set(sessionId, ws);
+
+            // Send the stored context if available
+            const context = sessionContext.get(sessionId);
+            if (context) {
+              ws.send(JSON.stringify({
+                type: 'context',
+                payload: { context }
+              }));
+            }
+            break;
+
+          default:
+            console.warn('Unknown message type:', msg.type);
+        }
+      } catch (error: unknown) {
+        console.error('Error handling message:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        ws.send(JSON.stringify({
+          type: 'error',
+          payload: {
+            error: errorMessage
+          }
+        }));
+      }
+    });
+
+    // Handle disconnection
+    ws.on('close', () => {
+      activeWsConnections.delete(sessionId);
+    });
+  });
+}
+
+// Function to send message to a specific session
+export function sendToSession(sessionId: string, message: any) {
+  const ws = activeWsConnections.get(sessionId);
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(message));
+  }
+}
+
+// Function to store context for a session that hasn't connected yet
+export function storePendingContext(sessionId: string, context: SessionContext) {
+  pendingContext.set(sessionId, context);
+}
+
+// Function to check if a session is connected
+export function isSessionConnected(sessionId: string): boolean {
+  const ws = activeWsConnections.get(sessionId);
+  return ws?.readyState === WebSocket.OPEN;
 }
 
 export function setupWebSocketRoutes(app: Application) {

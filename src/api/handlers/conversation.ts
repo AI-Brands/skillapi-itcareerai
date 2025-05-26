@@ -70,38 +70,34 @@ export async function conversationHandler(
 
     console.log('Sending greeting:', fullGreeting);
     // Send greeting first
-    await connection.send('skillConversation', { text: fullGreeting, meta: { endConversation: false } });
+    await connection.send('skillConversation', { text: fullGreeting });
 
     // Then send initial question if available
     if (connection.context.initialQuestion) {
       console.log('Sending initial question:', connection.context.initialQuestion);
       // Add a small delay to ensure the greeting is processed first
       await new Promise(resolve => setTimeout(resolve, 1000));
-      await connection.send('skillConversation', { text: connection.context.initialQuestion, meta: { endConversation: false } });
+      await connection.send('skillConversation', { text: connection.context.initialQuestion });
     } else {
       console.error('No initial question found in context');
-      await connection.send('skillConversation', { text: "Let's begin! Please introduce yourself.", meta: { endConversation: false } });
     }
   } else if (isStartInterview && !connection.context) {
     // If start interview triggered but no context
     console.log('Start interview triggered but no context found');
     await connection.send('skillConversation', {
-      text: "I don't have your interview context yet. Please make sure the context was properly sent before starting the session.",
-      meta: { endConversation: false }
+      text: "I don't have your interview context yet. Please make sure the context was properly sent before starting the session."
     });
   } else if (connection.interviewStage === 'interview') {
     // Handle interview questions
     console.log('Processing interview response');
     await connection.send('skillConversation', {
-      text: "I understand your response. Let me think about that...",
-      meta: { endConversation: false }
+      text: "I understand your response. Let me think about that..."
     });
-    } else {
+  } else {
     // Default response for other messages
     console.log('Sending default response');
     await connection.send('skillConversation', {
-      text: "Please say 'start interview' to begin your mock interview session.",
-      meta: { endConversation: false }
+      text: "Please say 'start interview' to begin your mock interview session."
     });
   }
 }
