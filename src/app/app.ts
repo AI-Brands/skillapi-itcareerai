@@ -3,8 +3,8 @@ import express from 'express';
 import expressWs from 'express-ws';
 import bodyParser from 'body-parser';
 import cors from 'cors';
-import restRoutes from 'app/rest_routes';
-import wsRoutes from 'app/ws_routes';
+import restRoutes from './rest_routes';
+import wsRoutes from './ws_routes';
 
 const app = express();
 expressWs(app);
