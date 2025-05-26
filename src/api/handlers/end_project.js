@@ -1,0 +1,19 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.endProjectHandler = endProjectHandler;
+/**
+ * End project handler
+ * https://docs.soulmachines.com/skills/api#tag/Delete
+ *
+ * Use this endpoint to implement any clean-up for a Skill when it is no longer used by a project.
+ *
+ * Skills which make use of the init endpoint may find the delete endpoint particularly useful for
+ * cleaning up any long-running tasks or stored data associated with the provided projectId.
+ *
+ * The delete endpoint will be called every time a DDNA Studio project using this Skill is deleted.
+ * It will also be called when a project using the Skill removes it, and is then redeployed.
+ */
+function endProjectHandler(projectId) {
+    console.log('End project handler got:', projectId);
+}
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiZW5kX3Byb2plY3QuanMiLCJzb3VyY2VSb290IjoiIiwic291cmNlcyI6WyJlbmRfcHJvamVjdC50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiOztBQVlBLDhDQUVDO0FBZEQ7Ozs7Ozs7Ozs7O0dBV0c7QUFDSCxTQUFnQixpQkFBaUIsQ0FBQyxTQUFpQjtJQUNqRCxPQUFPLENBQUMsR0FBRyxDQUFDLDBCQUEwQixFQUFFLFNBQVMsQ0FBQyxDQUFDO0FBQ3JELENBQUMiLCJzb3VyY2VzQ29udGVudCI6WyIvKipcbiAqIEVuZCBwcm9qZWN0IGhhbmRsZXJcbiAqIGh0dHBzOi8vZG9jcy5zb3VsbWFjaGluZXMuY29tL3NraWxscy9hcGkjdGFnL0RlbGV0ZVxuICpcbiAqIFVzZSB0aGlzIGVuZHBvaW50IHRvIGltcGxlbWVudCBhbnkgY2xlYW4tdXAgZm9yIGEgU2tpbGwgd2hlbiBpdCBpcyBubyBsb25nZXIgdXNlZCBieSBhIHByb2plY3QuXG4gKlxuICogU2tpbGxzIHdoaWNoIG1ha2UgdXNlIG9mIHRoZSBpbml0IGVuZHBvaW50IG1heSBmaW5kIHRoZSBkZWxldGUgZW5kcG9pbnQgcGFydGljdWxhcmx5IHVzZWZ1bCBmb3JcbiAqIGNsZWFuaW5nIHVwIGFueSBsb25nLXJ1bm5pbmcgdGFza3Mgb3Igc3RvcmVkIGRhdGEgYXNzb2NpYXRlZCB3aXRoIHRoZSBwcm92aWRlZCBwcm9qZWN0SWQuXG4gKlxuICogVGhlIGRlbGV0ZSBlbmRwb2ludCB3aWxsIGJlIGNhbGxlZCBldmVyeSB0aW1lIGEgREROQSBTdHVkaW8gcHJvamVjdCB1c2luZyB0aGlzIFNraWxsIGlzIGRlbGV0ZWQuXG4gKiBJdCB3aWxsIGFsc28gYmUgY2FsbGVkIHdoZW4gYSBwcm9qZWN0IHVzaW5nIHRoZSBTa2lsbCByZW1vdmVzIGl0LCBhbmQgaXMgdGhlbiByZWRlcGxveWVkLlxuICovXG5leHBvcnQgZnVuY3Rpb24gZW5kUHJvamVjdEhhbmRsZXIocHJvamVjdElkOiBzdHJpbmcpIHtcbiAgY29uc29sZS5sb2coJ0VuZCBwcm9qZWN0IGhhbmRsZXIgZ290OicsIHByb2plY3RJZCk7XG59XG4iXX0=

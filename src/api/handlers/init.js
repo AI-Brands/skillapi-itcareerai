@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.initHandler = initHandler;
+/**
+ * Init handler
+ * https://docs.soulmachines.com/skills/api#tag/Init
+ *
+ * Runs when a DDNA Studio project is deployed with this Skill configured
+ */
+function initHandler(req) {
+    console.log('Init handler got:', req);
+}
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiaW5pdC5qcyIsInNvdXJjZVJvb3QiOiIiLCJzb3VyY2VzIjpbImluaXQudHMiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6Ijs7QUFRQSxrQ0FFQztBQVJEOzs7OztHQUtHO0FBQ0gsU0FBZ0IsV0FBVyxDQUFDLEdBQWdCO0lBQzFDLE9BQU8sQ0FBQyxHQUFHLENBQUMsbUJBQW1CLEVBQUUsR0FBRyxDQUFDLENBQUM7QUFDeEMsQ0FBQyIsInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IEluaXRSZXF1ZXN0IH0gZnJvbSAnQHNvdWxtYWNoaW5lcy9zbXNraWxsc2RrJztcblxuLyoqXG4gKiBJbml0IGhhbmRsZXJcbiAqIGh0dHBzOi8vZG9jcy5zb3VsbWFjaGluZXMuY29tL3NraWxscy9hcGkjdGFnL0luaXRcbiAqXG4gKiBSdW5zIHdoZW4gYSBERE5BIFN0dWRpbyBwcm9qZWN0IGlzIGRlcGxveWVkIHdpdGggdGhpcyBTa2lsbCBjb25maWd1cmVkXG4gKi9cbmV4cG9ydCBmdW5jdGlvbiBpbml0SGFuZGxlcihyZXE6IEluaXRSZXF1ZXN0KSB7XG4gIGNvbnNvbGUubG9nKCdJbml0IGhhbmRsZXIgZ290OicsIHJlcSk7XG59XG4iXX0=
