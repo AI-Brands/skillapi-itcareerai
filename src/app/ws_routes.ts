@@ -34,6 +34,8 @@ const pendingContext = new Map<string, SessionContext>();
 // Create a wrapper for WebSocket to match ConnectionWithContext interface
 class WebSocketWrapper {
   private ws: WebSocket;
+  public context?: any;
+  public sessionId?: string;
 
   constructor(ws: WebSocket) {
     this.ws = ws;
@@ -219,6 +221,21 @@ export function setupWebSocketRoutes(app: Application) {
 
           // Handle regular conversation
           try {
+            // Get the latest context for this session
+            const context = sessionContext.get(sessionId);
+            if (!context) {
+              console.error('No context found for session:', sessionId);
+              await wrappedWs.send('error', {
+                message: 'No interview context found. Please restart the session.',
+                error: 'Missing context'
+              });
+              return;
+            }
+
+            // Add context to the connection
+            wrappedWs.context = context;
+            wrappedWs.sessionId = sessionId;
+
             const response = await conversationHandler(wrappedWs, msg.payload);
             if (response) {
               await wrappedWs.send('conversation', {
@@ -228,11 +245,11 @@ export function setupWebSocketRoutes(app: Application) {
               });
 
               // If this was a start interview message and we have an initial question, send it after a delay
-              if (/\b(start|begin) interview\b/i.test(msg.payload?.text || '') && sessionContext.get(sessionId)?.initialQuestion) {
+              if (/\b(start|begin) interview\b/i.test(msg.payload?.text || '') && context.initialQuestion) {
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 await wrappedWs.send('conversation', {
                   sessionId,
-                  text: sessionContext.get(sessionId).initialQuestion,
+                  text: context.initialQuestion,
                   isInitialQuestion: true
                 });
               }

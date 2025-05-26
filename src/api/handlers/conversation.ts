@@ -77,6 +77,9 @@ export async function conversationHandler(
   } else if (connection.interviewStage === 'interview') {
     // Handle interview questions
     console.log('Processing interview response');
+    if (connection.context?.initialQuestion) {
+      return connection.context.initialQuestion;
+    }
     return "I understand your response. Let me think about that...";
   } else {
     // Default response for other messages
