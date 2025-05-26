@@ -1,0 +1,43 @@
+{
+  "name": "Mock Interview Skill",
+  "summary": "A skill for conducting mock interviews with context awareness",
+  "description": "This skill handles mock interviews with personalized context including candidate name, job details, and interview stage",
+  "status": "ACTIVE",
+  "serviceProvider": "SKILL_API",
+  "category": null,
+  "endpointInitialize": "https://fe15-2001-448a-3070-3bb7-5480-3918-2471-92e.ngrok-free.app/api/init",
+  "endpointSession": "https://fe15-2001-448a-3070-3bb7-5480-3918-2471-92e.ngrok-free.app/api/session",
+  "endpointExecute": "https://fe15-2001-448a-3070-3bb7-5480-3918-2471-92e.ngrok-free.app/api/execute",
+  "endpointEndSession": "https://fe15-2001-448a-3070-3bb7-5480-3918-2471-92e.ngrok-free.app/api/end-session",
+  "endpointEndProject": "https://fe15-2001-448a-3070-3bb7-5480-3918-2471-92e.ngrok-free.app/api/end-project",
+  "endpointMatchIntent": "https://fe15-2001-448a-3070-3bb7-5480-3918-2471-92e.ngrok-free.app/api/match-intent",
+  "languages": null,
+  "config": {
+      "matchType": "CUSTOM",
+      "skillType": "DEFAULT",
+      "launchPhrases": [
+          {
+              "lang": "en-US",
+              "value": "start interview"
+          },
+          {
+              "lang": "en-US",
+              "value": "begin interview"
+          },
+          {
+              "lang": "en-US",
+              "value": "Start interview."
+          }
+      ],
+      "sessionConfig": {
+          "enableContext": true,
+          "contextTimeout": 300000,
+          "contextDelivery": "WEBSOCKET",
+          "websocketConfig": {
+              "reconnectAttempts": 3,
+              "reconnectInterval": 1000,
+              "connectionTimeout": 5000
+          }
+      }
+  }
+}
