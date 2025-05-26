@@ -158,6 +158,13 @@ export function setupWebSocketRoutes(app: Application) {
     // Send immediate acknowledgment
     wrappedWs.send('connection', { status: 'connected' }).catch(console.error);
 
+    // Set up ping interval to keep connection alive
+    const pingInterval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.ping();
+      }
+    }, 30000); // Send ping every 30 seconds
+
     ws.on('message', async (message: string) => {
       try {
         const msg = JSON.parse(message);
@@ -169,25 +176,11 @@ export function setupWebSocketRoutes(app: Application) {
             sessionId = msg.payload.sessionId;
             activeWsConnections.set(sessionId, ws);
             console.log('Registered wsConnection for session:', sessionId);
-            console.log('Current activeWsConnections keys:', Array.from(activeWsConnections.keys()));
 
             // Store context if provided
             if (msg.payload.context) {
               sessionContext.set(sessionId, msg.payload.context);
               console.log('Stored context for session:', sessionId);
-            }
-
-            // Check if there's pending context for this session
-            const pendingCtx = pendingContext.get(sessionId);
-            if (pendingCtx) {
-              console.log('Found pending context for session:', sessionId);
-              try {
-                await wrappedWs.send('context', pendingCtx);
-                console.log('Sent pending context via WebSocket for session:', sessionId);
-                pendingContext.delete(sessionId);
-              } catch (error) {
-                console.error('Error sending pending context:', error);
-              }
             }
 
             // Send acknowledgment
@@ -221,17 +214,36 @@ export function setupWebSocketRoutes(app: Application) {
                 });
                 return;
               }
-            } else if (msg.payload.isInitialQuestion) {
-              console.log('Sending initial question to avatar:', msg.payload.text);
-              await wrappedWs.send('conversation', {
-                sessionId,
-                text: msg.payload.text,
-                isInitialQuestion: true
-              });
-              return;
             }
           }
-          await conversationHandler(wrappedWs, msg.payload);
+
+          // Handle regular conversation
+          try {
+            const response = await conversationHandler(wrappedWs, msg.payload);
+            if (response) {
+              await wrappedWs.send('conversation', {
+                sessionId,
+                text: response,
+                isResponse: true
+              });
+
+              // If this was a start interview message and we have an initial question, send it after a delay
+              if (/\b(start|begin) interview\b/i.test(msg.payload?.text || '') && sessionContext.get(sessionId)?.initialQuestion) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                await wrappedWs.send('conversation', {
+                  sessionId,
+                  text: sessionContext.get(sessionId).initialQuestion,
+                  isInitialQuestion: true
+                });
+              }
+            }
+          } catch (error) {
+            console.error('Error in conversation handler:', error);
+            await wrappedWs.send('error', {
+              message: 'Error processing conversation',
+              error: error instanceof Error ? error.message : 'Unknown error'
+            });
+          }
           return;
         }
 
@@ -249,7 +261,7 @@ export function setupWebSocketRoutes(app: Application) {
         try {
           await wrappedWs.send('error', { 
             message: 'Error processing message',
-            error: error.message 
+            error: error instanceof Error ? error.message : 'Unknown error'
           });
         } catch (sendError) {
           console.error('Error sending error message:', sendError);
@@ -257,19 +269,27 @@ export function setupWebSocketRoutes(app: Application) {
       }
     });
 
+    // Handle disconnection
     ws.on('close', () => {
       if (sessionId) {
         activeWsConnections.delete(sessionId);
-        console.log('Removed wsConnection for session:', sessionId);
-        console.log('Current activeWsConnections keys:', Array.from(activeWsConnections.keys()));
+        console.log('WebSocket connection closed for session:', sessionId);
       }
+      clearInterval(pingInterval);
     });
 
+    // Handle errors
     ws.on('error', (error) => {
       console.error('WebSocket error:', error);
       if (sessionId) {
         activeWsConnections.delete(sessionId);
       }
+      clearInterval(pingInterval);
+    });
+
+    // Handle pong
+    ws.on('pong', () => {
+      console.log('Received pong from client');
     });
   });
 
@@ -333,3 +353,4 @@ export function setupWebSocketRoutes(app: Application) {
 }
 
 export default wsInstance;
+
