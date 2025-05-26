@@ -11,7 +11,7 @@ expressWs(app);
 
 // Enable CORS for all routes
 app.use(cors({
-  origin: 'http://localhost:5173', // Your frontend URL
+  origin: process.env.FRONTEND_URL || '*', // Allow all origins in production
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id'],
   credentials: true
@@ -22,13 +22,20 @@ app.use(bodyParser.json());
 app.use(restRoutes);
 app.use(wsRoutes);
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
 const args = yargs(process.argv.slice(2))
   .option({
-    port: { type: 'number', default: 5001, describe: 'Port to serve on' },
+    port: { type: 'number', default: process.env.PORT ? parseInt(process.env.PORT) : 5001, describe: 'Port to serve on' },
   })
   .help()
   .parseSync();
 
-app.listen(args.port, () => {
-  console.log(`Soul Machines Async Skill started on port ${args.port}.`);
+const port = args.port;
+
+app.listen(port, '0.0.0.0', () => {
+  console.log(`Soul Machines Async Skill started on port ${port}.`);
 });
