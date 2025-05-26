@@ -9,8 +9,8 @@ import { storeContext, getContext, clearContext } from './session_store';
 
 const router = express.Router();
 
-// Add CORS middleware to allow requests from localhost:5173
-router.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+// Add CORS middleware to allow requests from localhost:5000
+router.use(cors({ origin: 'http://localhost:5000', credentials: true }));
 
 // Add type for global.activeWsConnections
 if (!(global as any).activeWsConnections) {
