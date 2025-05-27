@@ -32,6 +32,10 @@ const sessionContext = new Map<string, SessionContext>();
 const pendingContext = new Map<string, SessionContext>();
 const connectionTimeouts = new Map<string, NodeJS.Timeout>();
 const heartbeatIntervals = new Map<string, NodeJS.Timeout>();
+const reconnectAttempts = new Map<string, number>();
+const MAX_RECONNECT_ATTEMPTS = 5;
+const HEARTBEAT_INTERVAL = 15000; // 15 seconds
+const CONNECTION_TIMEOUT = 30000; // 30 seconds
 
 // Create a wrapper for WebSocket to match ConnectionWithContext interface
 class WebSocketWrapper {
@@ -39,10 +43,44 @@ class WebSocketWrapper {
   public context?: any;
   public sessionId?: string;
   private lastPingTime: number;
+  private heartbeatInterval?: NodeJS.Timeout;
+  private connectionTimeout?: NodeJS.Timeout;
 
   constructor(ws: WebSocket) {
     this.ws = ws;
     this.lastPingTime = Date.now();
+    this.setupHeartbeat();
+  }
+
+  private setupHeartbeat() {
+    // Clear any existing intervals
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+    }
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+    }
+
+    // Set up new heartbeat
+    this.heartbeatInterval = setInterval(() => {
+      if (this.ws.readyState === WebSocket.OPEN) {
+        try {
+          this.ws.ping();
+          this.updateLastPingTime();
+        } catch (error) {
+          console.error('Error sending ping:', error);
+          this.cleanup();
+        }
+      }
+    }, HEARTBEAT_INTERVAL);
+
+    // Set connection timeout
+    this.connectionTimeout = setTimeout(() => {
+      if (this.ws.readyState !== WebSocket.OPEN) {
+        console.log('Connection timeout, closing WebSocket');
+        this.cleanup();
+      }
+    }, CONNECTION_TIMEOUT);
   }
 
   updateLastPingTime() {
@@ -51,6 +89,18 @@ class WebSocketWrapper {
 
   getLastPingTime() {
     return this.lastPingTime;
+  }
+
+  cleanup() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+    }
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+    }
+    if (this.ws.readyState === WebSocket.OPEN) {
+      this.ws.close();
+    }
   }
 
   async send(name: string, payload: any): Promise<void> {
@@ -173,25 +223,6 @@ export function setupWebSocketRoutes(app: Application) {
     // Send immediate acknowledgment
     wrappedWs.send('connection', { status: 'connected' }).catch(console.error);
 
-    // Set up ping interval to keep connection alive
-    const pingInterval = setInterval(() => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.ping();
-      }
-    }, 30000); // Send ping every 30 seconds
-
-    // Set up heartbeat check
-    const heartbeatCheck = setInterval(() => {
-      if (sessionId) {
-        const lastPingTime = wrappedWs.getLastPingTime();
-        const now = Date.now();
-        if (now - lastPingTime > 60000) { // No ping for 60 seconds
-          console.log('No heartbeat received for 60 seconds, closing connection');
-          ws.close();
-        }
-      }
-    }, 10000); // Check every 10 seconds
-
     ws.on('message', async (message: string) => {
       try {
         const msg = JSON.parse(message);
@@ -209,6 +240,7 @@ export function setupWebSocketRoutes(app: Application) {
           if (msg.payload && msg.payload.sessionId) {
             sessionId = msg.payload.sessionId;
             activeWsConnections.set(sessionId, ws);
+            reconnectAttempts.set(sessionId, 0);
             console.log('Registered wsConnection for session:', sessionId);
 
             // Store context if provided
@@ -279,6 +311,7 @@ export function setupWebSocketRoutes(app: Application) {
           if (!sessionId && msg.payload?.sessionId) {
             sessionId = msg.payload.sessionId;
             activeWsConnections.set(sessionId, ws);
+            reconnectAttempts.set(sessionId, 0);
             console.log('Registered wsConnection for session:', sessionId);
           }
 
@@ -362,13 +395,20 @@ export function setupWebSocketRoutes(app: Application) {
     });
 
     // Handle disconnection
-    ws.on('close', () => {
+    ws.on('close', (code, reason) => {
+      console.log('WebSocket closed:', code, reason.toString());
       if (sessionId) {
         activeWsConnections.delete(sessionId);
-        console.log('WebSocket connection closed for session:', sessionId);
+        const attempts = reconnectAttempts.get(sessionId) || 0;
+        if (attempts < MAX_RECONNECT_ATTEMPTS) {
+          reconnectAttempts.set(sessionId, attempts + 1);
+          console.log(`Reconnect attempt ${attempts + 1}/${MAX_RECONNECT_ATTEMPTS} for session ${sessionId}`);
+        } else {
+          console.log(`Max reconnect attempts reached for session ${sessionId}`);
+          reconnectAttempts.delete(sessionId);
+        }
       }
-      clearInterval(pingInterval);
-      clearInterval(heartbeatCheck);
+      wrappedWs.cleanup();
     });
 
     // Handle errors
@@ -377,8 +417,7 @@ export function setupWebSocketRoutes(app: Application) {
       if (sessionId) {
         activeWsConnections.delete(sessionId);
       }
-      clearInterval(pingInterval);
-      clearInterval(heartbeatCheck);
+      wrappedWs.cleanup();
     });
 
     // Handle pong
