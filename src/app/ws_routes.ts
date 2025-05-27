@@ -254,23 +254,7 @@ export function setupWebSocketRoutes(app: Application) {
 
           if (msg.payload?.text) {
             console.log('Received conversation message:', msg.payload);
-            if (/\b(start|begin) interview\b/i.test(msg.payload.text)) {
-              console.log('Interview start detected');
-              const context = sessionContext.get(sessionId);
-              if (context?.initialQuestion) {
-                console.log('Sending initial question:', context.initialQuestion);
-                await wrappedWs.send('conversation', {
-                  sessionId,
-                  text: context.initialQuestion,
-                  isInitialQuestion: true
-                });
-                return;
-              }
-            }
-          }
-
-          // Handle regular conversation
-          try {
+            
             // Get the latest context for this session
             const context = sessionContext.get(sessionId);
             if (!context) {
@@ -280,6 +264,32 @@ export function setupWebSocketRoutes(app: Application) {
                 error: 'Missing context'
               });
               return;
+            }
+
+            // Handle name-related questions
+            if (msg.payload.text.toLowerCase().includes('what is my name') || 
+                msg.payload.text.toLowerCase().includes('what should i call you')) {
+              console.log('Name question detected, responding with context:', context);
+              await wrappedWs.send('conversation', {
+                sessionId,
+                text: `Your name is ${context.name}. You can call me your interview coach.`,
+                isResponse: true
+              });
+              return;
+            }
+
+            // Handle start interview command
+            if (/\b(start|begin) interview\b/i.test(msg.payload.text)) {
+              console.log('Interview start detected');
+              if (context?.initialQuestion) {
+                console.log('Sending initial question:', context.initialQuestion);
+                await wrappedWs.send('conversation', {
+                  sessionId,
+                  text: context.initialQuestion,
+                  isInitialQuestion: true
+                });
+                return;
+              }
             }
 
             // Add context to the connection
@@ -295,12 +305,6 @@ export function setupWebSocketRoutes(app: Application) {
                 isResponse: true
               });
             }
-          } catch (error) {
-            console.error('Error in conversation handler:', error);
-            await wrappedWs.send('error', {
-              message: 'Error processing conversation',
-              error: error instanceof Error ? error.message : 'Unknown error'
-            });
           }
           return;
         }
