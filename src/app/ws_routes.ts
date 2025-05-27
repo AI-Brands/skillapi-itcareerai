@@ -30,6 +30,7 @@ interface SessionContext {
 const activeWsConnections = new Map<string, WebSocket>();
 const sessionContext = new Map<string, SessionContext>();
 const pendingContext = new Map<string, SessionContext>();
+const connectionTimeouts = new Map<string, NodeJS.Timeout>();
 
 // Create a wrapper for WebSocket to match ConnectionWithContext interface
 class WebSocketWrapper {
@@ -45,6 +46,7 @@ class WebSocketWrapper {
     return new Promise((resolve, reject) => {
       if (this.ws.readyState === WebSocket.OPEN) {
         try {
+          console.log(`Sending ${name} message:`, payload);
           this.ws.send(JSON.stringify({ name, payload }), (err) => {
             if (err) reject(err);
             else resolve();
@@ -181,16 +183,63 @@ export function setupWebSocketRoutes(app: Application) {
 
             // Store context if provided
             if (msg.payload.context) {
+              console.log('Received context for session:', sessionId, msg.payload.context);
               sessionContext.set(sessionId, msg.payload.context);
               console.log('Stored context for session:', sessionId);
-            }
 
-            // Send acknowledgment
-            await wrappedWs.send('sessionStart', { 
-              status: 'success',
-              sessionId,
-              message: 'Session registered successfully'
-            });
+              // Send acknowledgment
+              await wrappedWs.send('sessionStart', { 
+                status: 'success',
+                sessionId,
+                message: 'Session registered successfully'
+              });
+
+              // Send initial greeting if context exists
+              const context = sessionContext.get(sessionId);
+              if (context) {
+                console.log('Sending initial greeting with context:', context);
+                const greeting = `Hello ${context.name}! I'll be conducting your ${context.stage} interview for the ${context.jobTitle} position at ${context.company}. `;
+                const stageMessage = context.stage === 'intro' ? 
+                  "This is an initial screening call to get to know you better." :
+                  context.stage === 'behavioral' ?
+                  "I'll be asking you about your past experiences and how you've handled different situations." :
+                  context.stage === 'technical' ?
+                  "I'll be asking you technical questions to assess your knowledge and problem-solving abilities." :
+                  context.stage === 'situational' ?
+                  "I'll be presenting you with hypothetical scenarios to understand how you would handle them." :
+                  "I'll be asking questions to understand how well you align with our company culture.";
+
+                const difficultyMessage = context.difficulty === 'beginner' ?
+                  "I'll keep the questions at a beginner level to help you get comfortable with the interview process." :
+                  context.difficulty === 'intermediate' ?
+                  "I'll ask questions at an intermediate level to challenge you appropriately." :
+                  "I'll ask advanced questions to thoroughly assess your expertise.";
+
+                const locationMessage = context.location ? 
+                  ` I see you're interested in the ${context.location} location.` : '';
+
+                const fullGreeting = greeting + stageMessage + difficultyMessage + locationMessage;
+
+                console.log('Sending greeting:', fullGreeting);
+                await wrappedWs.send('conversation', {
+                  sessionId,
+                  text: fullGreeting,
+                  isGreeting: true
+                });
+
+                // Send initial question after a short delay
+                if (context.initialQuestion) {
+                  console.log('Sending initial question:', context.initialQuestion);
+                  setTimeout(async () => {
+                    await wrappedWs.send('conversation', {
+                      sessionId,
+                      text: context.initialQuestion,
+                      isInitialQuestion: true
+                    });
+                  }, 2000);
+                }
+              }
+            }
             return;
           }
         }
@@ -204,11 +253,12 @@ export function setupWebSocketRoutes(app: Application) {
           }
 
           if (msg.payload?.text) {
+            console.log('Received conversation message:', msg.payload);
             if (/\b(start|begin) interview\b/i.test(msg.payload.text)) {
-              console.log('Interview start detected, sending initial question');
+              console.log('Interview start detected');
               const context = sessionContext.get(sessionId);
               if (context?.initialQuestion) {
-                console.log('Found initial question in context:', context.initialQuestion);
+                console.log('Sending initial question:', context.initialQuestion);
                 await wrappedWs.send('conversation', {
                   sessionId,
                   text: context.initialQuestion,
@@ -238,21 +288,12 @@ export function setupWebSocketRoutes(app: Application) {
 
             const response = await conversationHandler(wrappedWs, msg.payload);
             if (response) {
+              console.log('Sending conversation response:', response);
               await wrappedWs.send('conversation', {
                 sessionId,
                 text: response,
                 isResponse: true
               });
-
-              // If this was a start interview message and we have an initial question, send it after a delay
-              if (/\b(start|begin) interview\b/i.test(msg.payload?.text || '') && context.initialQuestion) {
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                await wrappedWs.send('conversation', {
-                  sessionId,
-                  text: context.initialQuestion,
-                  isInitialQuestion: true
-                });
-              }
             }
           } catch (error) {
             console.error('Error in conversation handler:', error);
