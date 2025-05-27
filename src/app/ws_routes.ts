@@ -31,15 +31,26 @@ const activeWsConnections = new Map<string, WebSocket>();
 const sessionContext = new Map<string, SessionContext>();
 const pendingContext = new Map<string, SessionContext>();
 const connectionTimeouts = new Map<string, NodeJS.Timeout>();
+const heartbeatIntervals = new Map<string, NodeJS.Timeout>();
 
 // Create a wrapper for WebSocket to match ConnectionWithContext interface
 class WebSocketWrapper {
   private ws: WebSocket;
   public context?: any;
   public sessionId?: string;
+  private lastPingTime: number;
 
   constructor(ws: WebSocket) {
     this.ws = ws;
+    this.lastPingTime = Date.now();
+  }
+
+  updateLastPingTime() {
+    this.lastPingTime = Date.now();
+  }
+
+  getLastPingTime() {
+    return this.lastPingTime;
   }
 
   async send(name: string, payload: any): Promise<void> {
@@ -169,10 +180,29 @@ export function setupWebSocketRoutes(app: Application) {
       }
     }, 30000); // Send ping every 30 seconds
 
+    // Set up heartbeat check
+    const heartbeatCheck = setInterval(() => {
+      if (sessionId) {
+        const lastPingTime = wrappedWs.getLastPingTime();
+        const now = Date.now();
+        if (now - lastPingTime > 60000) { // No ping for 60 seconds
+          console.log('No heartbeat received for 60 seconds, closing connection');
+          ws.close();
+        }
+      }
+    }, 10000); // Check every 10 seconds
+
     ws.on('message', async (message: string) => {
       try {
         const msg = JSON.parse(message);
         console.log('Received WS message:', msg);
+
+        // Handle heartbeat
+        if (msg.name === 'ping') {
+          wrappedWs.updateLastPingTime();
+          await wrappedWs.send('pong', { timestamp: Date.now() });
+          return;
+        }
 
         // Handle session start message
         if (msg.name === 'sessionStart') {
@@ -338,6 +368,7 @@ export function setupWebSocketRoutes(app: Application) {
         console.log('WebSocket connection closed for session:', sessionId);
       }
       clearInterval(pingInterval);
+      clearInterval(heartbeatCheck);
     });
 
     // Handle errors
@@ -347,11 +378,13 @@ export function setupWebSocketRoutes(app: Application) {
         activeWsConnections.delete(sessionId);
       }
       clearInterval(pingInterval);
+      clearInterval(heartbeatCheck);
     });
 
     // Handle pong
     ws.on('pong', () => {
       console.log('Received pong from client');
+      wrappedWs.updateLastPingTime();
     });
   });
 
